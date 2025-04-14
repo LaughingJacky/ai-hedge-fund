@@ -51,6 +51,7 @@ def call_llm(
             
             # For non-JSON support models, we need to extract and parse the JSON manually
             if model_info and not model_info.has_json_mode():
+                print(result.content)
                 parsed_result = extract_json_from_deepseek_response(result.content)
                 if parsed_result:
                     return pydantic_model(**parsed_result)
