@@ -7,7 +7,6 @@ import questionary
 import matplotlib.pyplot as plt
 import pandas as pd
 from colorama import Fore, Style, init
-import numpy as np
 import itertools
 
 from llm.models import LLM_ORDER, get_model_info
@@ -517,20 +516,20 @@ class Backtester:
         daily_risk_free_rate = 0.0434 / 252
         excess_returns = clean_returns - daily_risk_free_rate
         mean_excess_return = excess_returns.mean()
-        std_excess_return = excess_returns.std()
+        std_excess_return = excess_returns.std(ddof=0)
 
         # Sharpe ratio
         if std_excess_return > 1e-12:
-            performance_metrics["sharpe_ratio"] = np.sqrt(252) * (mean_excess_return / std_excess_return)
+            performance_metrics["sharpe_ratio"] = (252**0.5) * (mean_excess_return / std_excess_return)
         else:
             performance_metrics["sharpe_ratio"] = 0.0
 
         # Sortino ratio
         negative_returns = excess_returns[excess_returns < 0]
         if len(negative_returns) > 0:
-            downside_std = negative_returns.std()
+            downside_std = negative_returns.std(ddof=0)
             if downside_std > 1e-12:
-                performance_metrics["sortino_ratio"] = np.sqrt(252) * (mean_excess_return / downside_std)
+                performance_metrics["sortino_ratio"] = (252 ** 0.5) * (mean_excess_return / downside_std)
             else:
                 performance_metrics["sortino_ratio"] = float('inf') if mean_excess_return > 0 else 0
         else:
@@ -592,11 +591,11 @@ class Backtester:
         performance_df["Daily Return"] = performance_df["Portfolio Value"].pct_change().fillna(0)
         daily_rf = 0.0434 / 252  # daily risk-free rate
         mean_daily_return = performance_df["Daily Return"].mean()
-        std_daily_return = performance_df["Daily Return"].std()
+        std_daily_return = performance_df["Daily Return"].std(ddof=0)
 
         # Annualized Sharpe Ratio
         if std_daily_return != 0:
-            annualized_sharpe = np.sqrt(252) * ((mean_daily_return - daily_rf) / std_daily_return)
+            annualized_sharpe = (252 ** 0.5) * ((mean_daily_return - daily_rf) / std_daily_return)
         else:
             annualized_sharpe = 0
         print(f"\nSharpe Ratio: {Fore.YELLOW}{annualized_sharpe:.2f}{Style.RESET_ALL}")

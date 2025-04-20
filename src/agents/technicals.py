@@ -6,10 +6,10 @@ from graph.state import AgentState, show_agent_reasoning
 
 import json
 import pandas as pd
-import numpy as np
 
 from tools.api import get_prices, prices_to_df
 from utils.progress import progress
+from scipy.stats import linregress
 
 
 ##### Technical Analyst #####
@@ -449,8 +449,8 @@ def calculate_adx(df: pd.DataFrame, period: int = 14) -> pd.DataFrame:
     df["up_move"] = df["high"] - df["high"].shift()
     df["down_move"] = df["low"].shift() - df["low"]
 
-    df["plus_dm"] = np.where((df["up_move"] > df["down_move"]) & (df["up_move"] > 0), df["up_move"], 0)
-    df["minus_dm"] = np.where((df["down_move"] > df["up_move"]) & (df["down_move"] > 0), df["down_move"], 0)
+    df["plus_dm"] = df["up_move"].where((df["up_move"] > df["down_move"]) & (df["up_move"] > 0), 0)
+    df["minus_dm"] = df["down_move"].where((df["down_move"] > df["up_move"]) & (df["down_move"] > 0), 0)
 
     # Calculate ADX
     df["+di"] = 100 * (df["plus_dm"].ewm(span=period).mean() / df["tr"].ewm(span=period).mean())
@@ -497,13 +497,16 @@ def calculate_hurst_exponent(price_series: pd.Series, max_lag: int = 20) -> floa
         float: Hurst exponent
     """
     lags = range(2, max_lag)
-    # Add small epsilon to avoid log(0)
-    tau = [max(1e-8, np.sqrt(np.std(np.subtract(price_series[lag:], price_series[:-lag])))) for lag in lags]
+
+    def calc_tau(lag):
+        diff = price_series.diff(lag).dropna()
+        return math.sqrt(diff.var()) if diff.var() > 0 else 1e-8
+    
+    tau = [calc_tau(lag) for lag in lags]
 
     # Return the Hurst exponent from linear fit
     try:
-        reg = np.polyfit(np.log(lags), np.log(tau), 1)
-        return reg[0]  # Hurst exponent is the slope
-    except (ValueError, RuntimeWarning):
-        # Return 0.5 (random walk) if calculation fails
+        reg = linregress([math.log(x) for x in lags], [math.log(x) for x in tau])
+        return reg.slope  # 返回回归系数
+    except:
         return 0.5

@@ -2,7 +2,6 @@ from langchain_core.messages import HumanMessage
 from graph.state import AgentState, show_agent_reasoning
 from utils.progress import progress
 import pandas as pd
-import numpy as np
 import json
 
 from tools.api import get_insider_trades, get_company_news
@@ -32,7 +31,7 @@ def sentiment_agent(state: AgentState):
 
         # Get the signals from the insider trades
         transaction_shares = pd.Series([t.transaction_shares for t in insider_trades]).dropna()
-        insider_signals = np.where(transaction_shares < 0, "bearish", "bullish").tolist()
+        insider_signals = transaction_shares.lt(0).map({True: "bearish", False: "bullish"}).tolist()
 
         progress.update_status("sentiment_agent", ticker, "Fetching company news")
 
@@ -41,8 +40,14 @@ def sentiment_agent(state: AgentState):
 
         # Get the sentiment from the company news
         sentiment = pd.Series([n.sentiment for n in company_news]).dropna()
-        news_signals = np.where(sentiment == "negative", "bearish", 
-                              np.where(sentiment == "positive", "bullish", "neutral")).tolist()
+        news_signals = (
+            sentiment.map({
+                "negative": "bearish", 
+                "positive": "bullish"
+            })
+            .fillna("neutral")
+            .tolist()
+        )
         
         progress.update_status("sentiment_agent", ticker, "Combining signals")
         # Combine signals from both sources with weights
